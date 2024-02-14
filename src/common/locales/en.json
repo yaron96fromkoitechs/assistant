@@ -1,0 +1,37 @@
+{
+  "core": {
+    "about": {
+      "name": "Name",
+      "age": "Age",
+      "gender": "Gender",
+      "goal": "Goal"
+    },
+    "genders": {
+      "male": "Male",
+      "female": "Female"
+    },
+    "goals": {
+      "gain": "Gain weight",
+      "keep": "Keep weight",
+      "lose": "Lose weight"
+    }
+  },
+  "telegram": {
+    "greeting": "Hello!",
+    "settings": {
+      "choose_lang": "Choose your language",
+      "enter_name": "Enter your name",
+      "enter_age": "Enter your age",
+      "select_gender": "Select your diet goal",
+      "enter_weight": "Enter your weight",
+      "enter_height": "Enter your height",
+      "select_goal": "Select your diet goal"
+    },
+    "chat": {
+      "enter": "Let's get started"
+    },
+    "buttons": {
+      "settings": "Settings"
+    }
+  }
+}

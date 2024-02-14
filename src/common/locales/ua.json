@@ -1,0 +1,37 @@
+{
+  "core": {
+    "about": {
+      "name": "Ім'я",
+      "age": "Вік",
+      "gender": "Стать",
+      "goal": "Мета"
+    },
+    "genders": {
+      "male": "Чоловіча",
+      "female": "Жіноча"
+    },
+    "goals": {
+      "gain": "Набрати вагу",
+      "keep": "Підтримувати вагу",
+      "lose": "Схуднути"
+    }
+  },
+  "telegram": {
+    "greeting": "Привіт!",
+    "settings": {
+      "choose_lang": "Оберіть вашу мову",
+      "enter_name": "Введіть ваше ім'я",
+      "enter_age": "Введіть ваш вік",
+      "select_gender": "Оберіть вашу стать",
+      "enter_weight": "Введіть вашу вагу",
+      "enter_height": "Введіть ваш зріст",
+      "select_goal": "Оберіть вашу ціль дієти"
+    },
+    "chat": {
+      "enter": "Почнемо"
+    },
+    "buttons": {
+      "settings": "Налаштування"
+    }
+  }
+}
