@@ -1,0 +1,12 @@
+# IDE
+.vscode
+
+# NODE
+node_modules
+yarn-error.log
+/build
+
+# ENV
+.env
+
+/uploads
