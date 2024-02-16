@@ -73,6 +73,7 @@ export class TelegramBot {
     const i18n = new I18n({
       useSession: true,
       defaultLanguage: 'en',
+      defaultLanguageOnMissing: true,
       // allowMissing: false, // Default true
       directory: path.resolve('src/common/locales')
     });
