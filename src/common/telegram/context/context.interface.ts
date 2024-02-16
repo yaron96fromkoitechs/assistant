@@ -2,6 +2,7 @@ import { Context, Scenes } from 'telegraf';
 
 export type TGender = 'male' | 'female' | 'neutral';
 export type TGoal = 'gain' | 'keep' | 'lose';
+export type TMeasureSystem = 'metric' | 'imperial';
 
 interface I18nContext {
   repository: {
@@ -17,9 +18,12 @@ export interface ISession extends Scenes.SceneSession<IWizardSceneSession> {
   name: string;
   gender: TGender;
   age: number;
-  goal: TGoal;
+
+  measureSystem: TMeasureSystem;
   weight: number;
   height: number;
+
+  goal: TGoal;
 
   threadId: string;
 }

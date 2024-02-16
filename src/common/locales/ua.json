@@ -4,28 +4,47 @@
       "name": "Ім'я",
       "age": "Вік",
       "gender": "Стать",
+      "height": "Зріст",
+      "weight": "Вага",
       "goal": "Мета"
     },
     "genders": {
-      "male": "Чоловіча",
-      "female": "Жіноча"
+      "male": "Чоловік",
+      "female": "Жінка"
+    },
+    "measure_system": {
+      "metric": {
+        "title": "Метрична система (см, кг)",
+        "height": "Сантиметри",
+        "height_short": "см.",
+        "weight": "Кілограми",
+        "weight_short": "кг."
+      },
+      "imperial": {
+        "title": "Імперська / Британська система (фт, фунти)",
+        "height": "Фути",
+        "height_short": "фт.",
+        "weight": "Фунти",
+        "weight_short": "фт."
+      }
     },
     "goals": {
       "gain": "Набрати вагу",
-      "keep": "Підтримувати вагу",
+      "keep": "Зберегти вагу",
       "lose": "Схуднути"
     }
   },
   "telegram": {
     "greeting": "Привіт!",
     "settings": {
-      "choose_lang": "Оберіть вашу мову",
+      "choose_lang": "Виберіть вашу мову",
       "enter_name": "Введіть ваше ім'я",
+      "select_gender": "Виберіть вашу стать",
       "enter_age": "Введіть ваш вік",
-      "select_gender": "Оберіть вашу стать",
+      "select_measure": "Виберіть систему вимірювань",
       "enter_weight": "Введіть вашу вагу",
       "enter_height": "Введіть ваш зріст",
-      "select_goal": "Оберіть вашу ціль дієти"
+      "select_goal": "Виберіть вашу дієту"
     },
     "chat": {
       "enter": "Почнемо"
