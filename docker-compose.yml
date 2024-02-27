@@ -28,6 +28,17 @@ services:
     networks:
       - node-network
 
+  postgres:
+    container_name: postgres_container
+    image: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    networks:
+      - node-network
+
 networks:
   node-network:
     driver: bridge

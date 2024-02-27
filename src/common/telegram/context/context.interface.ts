@@ -1,4 +1,5 @@
 import { Context, Scenes } from 'telegraf';
+import { SceneContextScene, WizardContext } from 'telegraf/typings/scenes';
 
 export type TGender = 'male' | 'female' | 'neutral';
 export type TGoal = 'gain' | 'keep' | 'lose';
@@ -14,7 +15,7 @@ interface I18nContext {
   locale: (lang: string) => void;
 }
 
-export interface ISession extends Scenes.SceneSession<IWizardSceneSession> {
+export interface ISession {
   name: string;
   gender: TGender;
   age: number;
@@ -25,30 +26,34 @@ export interface ISession extends Scenes.SceneSession<IWizardSceneSession> {
 
   goal: TGoal;
 
-  threadId: string;
-}
-
-interface IWizardSceneSession extends Scenes.WizardSessionData {
-  // will be available under ctx.scene.session.mySceneSessionProp
-  // mySceneSessionProp: number;
-}
-
-export interface IWizardSceneContext extends Context {
-  // will be available under ctx.myContextProp
-  // myContextProp: string;
-  session: ISession;
-  scene: Scenes.SceneContextScene<IWizardSceneContext, IWizardSceneSession>;
-  wizard: Scenes.WizardContextWizard<IWizardSceneContext>;
-  i18n: I18nContext;
+  nutriReportThreadId: string;
 }
 
 export interface IContext extends Context {
+  session: ISession;
+  i18n: I18nContext;
+  scene: SceneContextScene<any>;
+}
+
+interface IWizardSceneSession extends Scenes.WizardSession, ISession {
+  // will be available under ctx.scene.session.mySceneSessionProp
+  session: ISession;
+}
+
+export interface IWizardSceneContext extends WizardContext, IContext {
   // will be available under ctx.myContextProp
   // myContextProp: string;
-  session: ISession;
-  scene:
-    | Scenes.SceneContextScene<IWizardSceneContext, IWizardSceneSession>
-    | Scenes.SceneContextScene<IContext>;
-  wizard?: Scenes.WizardContextWizard<IWizardSceneContext>;
-  i18n: I18nContext;
+  session: IWizardSceneSession;
+  scene: any;
+  // scene: Scenes.SceneContextScene<IWizardSceneContext, IWizardSceneSession>;
+  // wizard: Scenes.WizardContextWizard<IWizardSceneContext>;
+  // i18n: I18nContext;
+}
+
+export interface IBaseSceneSession extends Scenes.SceneSession, ISession {}
+
+export interface IBaseSceneContext extends IContext {
+  // session: ISession;
+  // scene: SceneContextScene<SceneContext>;
+  session: IBaseSceneSession;
 }

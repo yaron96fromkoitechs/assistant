@@ -36,7 +36,7 @@
   },
   "telegram": {
     "greeting": "Hello!",
-    "settings": {
+    "bio": {
       "choose_lang": "Choose your language",
       "enter_name": "Enter your name",
       "select_gender": "Select your gender",
@@ -50,7 +50,9 @@
       "enter": "Let's get started"
     },
     "buttons": {
-      "settings": "Settings"
+      "settings": "Settings",
+      "meals": "My Meals",
+      "chat": "Chat"
     }
   }
 }

@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
 import { Markup, Scenes } from 'telegraf';
-
 import { WizardScene } from 'telegraf/typings/scenes';
+
 import { IWizardSceneContext } from 'common/telegram/context/context.interface';
 import { Scene } from 'common/telegram/handlers/handler.class';
 
@@ -250,7 +250,7 @@ const askLang = async (ctx: IWizardSceneContext) => {
   const langCodes = Object.keys(ctx.i18n.repository);
 
   return ctx.reply(
-    ctx.i18n.t('telegram.settings.choose_lang'),
+    ctx.i18n.t('telegram.bio.choose_lang'),
     Markup.inlineKeyboard([
       ...langCodes.map((langCode) => [
         Markup.button.callback(langCode.toLocaleUpperCase(), langCode)
@@ -260,16 +260,16 @@ const askLang = async (ctx: IWizardSceneContext) => {
 };
 
 const askName = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(ctx.i18n.t('telegram.settings.enter_name'));
+  return ctx.reply(ctx.i18n.t('telegram.bio.enter_name'));
 };
 
 const askAge = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(ctx.i18n.t('telegram.settings.enter_age'));
+  return ctx.reply(ctx.i18n.t('telegram.bio.enter_age'));
 };
 
 const askGender = async (ctx: IWizardSceneContext) => {
   return ctx.reply(
-    ctx.i18n.t('telegram.settings.select_gender'),
+    ctx.i18n.t('telegram.bio.select_gender'),
     Markup.inlineKeyboard([
       [Markup.button.callback(`${ctx.i18n.t('core.genders.male')}`, `male`)],
       [Markup.button.callback(`${ctx.i18n.t('core.genders.female')}`, `female`)]
@@ -279,7 +279,7 @@ const askGender = async (ctx: IWizardSceneContext) => {
 
 const askMeasurementSystem = async (ctx: IWizardSceneContext) => {
   return ctx.reply(
-    ctx.i18n.t('telegram.settings.select_measure'),
+    ctx.i18n.t('telegram.bio.select_measure'),
     Markup.inlineKeyboard([
       [
         Markup.button.callback(
@@ -300,9 +300,7 @@ const askMeasurementSystem = async (ctx: IWizardSceneContext) => {
 const askHeight = async (ctx: IWizardSceneContext) => {
   const measure = ctx.session.measureSystem;
   const heightUnit = ctx.i18n.t(`core.measure_system.${measure}.height`);
-  const message = `${ctx.i18n.t(
-    'telegram.settings.enter_height'
-  )} (${heightUnit})`;
+  const message = `${ctx.i18n.t('telegram.bio.enter_height')} (${heightUnit})`;
 
   return ctx.reply(message);
 };
@@ -310,16 +308,14 @@ const askHeight = async (ctx: IWizardSceneContext) => {
 const askWeight = async (ctx: IWizardSceneContext) => {
   const measure = ctx.session.measureSystem;
   const heightUnit = ctx.i18n.t(`core.measure_system.${measure}.weight`);
-  const message = `${ctx.i18n.t(
-    'telegram.settings.enter_weight'
-  )} (${heightUnit})`;
+  const message = `${ctx.i18n.t('telegram.bio.enter_weight')} (${heightUnit})`;
 
   return ctx.reply(message);
 };
 
 const askGoal = async (ctx: IWizardSceneContext) => {
   return ctx.reply(
-    `${ctx.i18n.t('telegram.settings.select_goal')}:\n`,
+    `${ctx.i18n.t('telegram.bio.select_goal')}:\n`,
     Markup.inlineKeyboard([
       [Markup.button.callback(`${ctx.i18n.t('core.goals.lose')}`, `lose`)],
       [Markup.button.callback(`${ctx.i18n.t('core.goals.keep')}`, `keep`)],

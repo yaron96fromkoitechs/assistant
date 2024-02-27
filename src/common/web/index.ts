@@ -29,11 +29,11 @@ export class WebServer {
     // Enable graceful stop
     process.once('SIGINT', () => {
       this.http.close();
-      this.logger.log('***HTTP SERVER***', 'STOPPED');
+      this.logger.log('[HTTP SERVER]', 'STOPPED');
     });
     process.once('SIGTERM', () => {
       this.http.close();
-      this.logger.log('***HTTP SERVER***', 'STOPPED');
+      this.logger.log('[HTTP SERVER]', 'STOPPED');
     });
   }
 
@@ -42,7 +42,7 @@ export class WebServer {
     this.routes();
 
     this.http.listen(this.port);
-    this.logger.log('***HTTP SERVER***', `LISTEN ON PORT ${this.port}`);
+    this.logger.log('[HTTP SERVER]', `LISTEN ON PORT ${this.port}`);
   }
 
   private middleware(): void {

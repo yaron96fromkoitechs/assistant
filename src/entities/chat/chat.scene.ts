@@ -1,63 +1,88 @@
-import axios from 'axios';
 import { inject, injectable } from 'inversify';
 import { Markup, Scenes } from 'telegraf';
 
-import { IFileService } from 'utils/file/file.interface';
 import { IGptService } from 'utils/gpt/gpt.interface';
+import { IUserService } from 'entities/user/user.service.interface';
+
 import { BaseSceneHandler } from 'common/telegram/handlers/handler.class';
-import { IContext } from 'common/telegram/context/context.interface';
+import { IBaseSceneContext } from 'common/telegram/context/context.interface';
 import { message } from 'telegraf/filters';
 import { BaseScene } from 'telegraf/typings/scenes';
 
 import { SCENES } from 'common/telegram/scenes.types';
+import {
+  getCallbackData,
+  getTextFromCallback,
+  getUserId
+} from 'common/telegram/helpers';
+import { JobType, QueueService, Queues } from 'utils/queue/queue.service';
+
 import { TYPES } from 'types';
 
 @injectable()
 export class ChatSceneHandler extends BaseSceneHandler {
   sceneId: string;
-  scene: BaseScene<IContext>;
+  scene: BaseScene<IBaseSceneContext>;
 
   constructor(
-    @inject(TYPES.IFileService) private readonly fileService: IFileService,
-    @inject(TYPES.IGptService) private readonly gptService: IGptService
+    @inject(TYPES.IGptService) private readonly gptService: IGptService,
+    @inject(TYPES.IUserService) private readonly userService: IUserService,
+    @inject(TYPES.QueueService) private readonly queueService: QueueService
   ) {
     super();
     this.sceneId = SCENES.CHAT;
-    this.scene = new Scenes.BaseScene<IContext>(this.sceneId);
+    this.scene = new Scenes.BaseScene<IBaseSceneContext>(this.sceneId);
   }
 
   handle(): void {
     this.scene.enter(async (ctx) => {
-      if (!ctx.session.threadId) {
+      const userId = getUserId(ctx);
+
+      // FIXME:
+      if (!ctx.session.nutriReportThreadId) {
         const threadId = await this.gptService.createThread();
-        ctx.session.threadId = threadId;
+        ctx.session.nutriReportThreadId = threadId;
       }
+
+      const user = await this.userService.getUserByTelegram(userId);
+      if (!user) {
+        await this.userService.createUserByTelegram(userId);
+      }
+
       ctx.sendMessage(
         ctx.i18n.t('telegram.chat.enter'),
-        Markup.keyboard([[ctx.i18n.t('telegram.buttons.settings')]]).resize()
+        Markup.keyboard([
+          [ctx.i18n.t('telegram.buttons.meals')],
+          [ctx.i18n.t('telegram.buttons.settings')]
+        ]).resize()
       );
     });
 
     this.scene.on(message('text'), async (ctx) => {
-      if (ctx.message.text === ctx.i18n.t('telegram.buttons.settings')) {
+      const {
+        from: { id: telegramId },
+        message: { text },
+        session: { nutriReportThreadId: threadId }
+      } = ctx;
+
+      if (text === ctx.i18n.t('telegram.buttons.settings')) {
         return ctx.scene.enter(SCENES.SETTINGS);
+      } else if (text === ctx.i18n.t('telegram.buttons.meals')) {
+        return ctx.scene.enter(SCENES.MEALS);
       }
 
-      ctx.sendChatAction('typing');
-
-      const response = await this.gptService.sendMessageAndGetResponse(
-        ctx.session.threadId,
-        ctx.message.text
-      );
-
-      if ('text' in response.content[0]) {
-        ctx.sendMessage(response.content[0].text.value);
-      }
+      await this.queueService
+        .getQueue(Queues.TELEGRAM)
+        .add(JobType.PROCESS_MEAL_TEXT_REPORT, {
+          text,
+          telegramId,
+          threadId
+        });
     });
 
     this.scene.on(message('voice'), async (ctx) => {
       const {
-        session: { threadId },
+        session: { nutriReportThreadId },
         update: {
           message: {
             voice: { file_id }
@@ -65,23 +90,42 @@ export class ChatSceneHandler extends BaseSceneHandler {
         }
       } = ctx;
 
-      ctx.sendChatAction('typing');
+      await this.queueService
+        .getQueue(Queues.TELEGRAM)
+        .add(JobType.PROCESS_MEAL_AUDIO_REPORT, {
+          fileId: file_id,
+          threadId: nutriReportThreadId,
+          telegramId: ctx.from.id
+        });
+    });
 
-      const link = await ctx.telegram.getFileLink(file_id);
-      const res = await axios(link.href, { responseType: 'arraybuffer' });
-      const filename = `${new Date().getTime()}.oga`;
-      const path = await this.fileService.saveBufferToFile(filename, res.data);
-      const text = await this.gptService.audioToTextTranscription(path);
-      await this.fileService.removeFile(filename);
+    this.scene.on('callback_query', async (ctx) => {
+      try {
+        const userId = getUserId(ctx);
 
-      const { content } = await this.gptService.sendMessageAndGetResponse(
-        threadId,
-        text
-      );
+        const cbData = getCallbackData(ctx);
 
-      if ('text' in content[0]) {
-        ctx.sendMessage(content[0].text.value);
+        switch (cbData) {
+          case inputCbData: {
+            const text = getTextFromCallback(ctx);
+
+            await this.queueService
+              .getQueue(Queues.TELEGRAM)
+              .add(JobType.PROCESS_MEAL_TEXT_REPORT_TO_JSON, {
+                text,
+                // FIXME:
+                telegramId: userId
+              });
+            break;
+          }
+          default:
+        }
+      } catch (e) {
+        console.log('error');
       }
     });
   }
 }
+
+// FIXME:
+const inputCbData = 'input';

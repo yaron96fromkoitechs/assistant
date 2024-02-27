@@ -14,3 +14,18 @@ export const getCallbackData = (
 export const getMessageText = (ctx: IWizardSceneContext | IContext): string => {
   return ctx.message && 'text' in ctx.message && ctx.message.text;
 };
+
+export const getTextFromCallback = (
+  ctx: IWizardSceneContext | IContext
+): string => {
+  const { callbackQuery } = ctx;
+  return (
+    callbackQuery.message &&
+    'text' in callbackQuery.message &&
+    callbackQuery.message.text
+  );
+};
+
+export const getUserId = (ctx: IWizardSceneContext | IContext): number => {
+  return ctx.from.id;
+};

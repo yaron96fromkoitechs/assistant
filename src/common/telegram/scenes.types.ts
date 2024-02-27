@@ -1,4 +1,5 @@
 export const SCENES = {
   CHAT: 'CHAT',
-  SETTINGS: 'SETTINGS'
+  SETTINGS: 'SETTINGS',
+  MEALS: 'MEALS'
 };

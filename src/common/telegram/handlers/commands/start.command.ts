@@ -11,6 +11,8 @@ export class StartCommandHandler extends Handler {
   }
 
   handle(): void {
-    this.bot.start((ctx) => ctx.scene.enter(SCENES.SETTINGS));
+    this.bot.start((ctx) => {
+      ctx.scene.enter(SCENES.SETTINGS);
+    });
   }
 }

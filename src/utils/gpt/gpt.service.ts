@@ -4,13 +4,15 @@ import fs from 'fs';
 
 import { IConfigService } from 'utils/config/config.interface';
 import { ILoggerService } from 'utils/logger/logger.interface';
-import { IGptService } from 'utils/gpt/gpt.interface';
+import { IGptService, TMeal } from 'utils/gpt/gpt.interface';
 
 import { TYPES } from 'types';
 
 @injectable()
 export class GptService implements IGptService {
-  openai: OpenAI;
+  private openai: OpenAI;
+
+  private nutriReportAssistantId: string;
 
   constructor(
     @inject(TYPES.IConfigService)
@@ -20,6 +22,74 @@ export class GptService implements IGptService {
     this.openai = new OpenAI({
       apiKey: this.configService.get('OPENAI_API_KEY')
     });
+
+    this.nutriReportAssistantId = this.configService.get(
+      'NUTRI_REPORT_FOR_MEAL_ASSISTANT_ID'
+    );
+  }
+
+  public getMealTextReport = async (
+    threadId: string,
+    text: string
+  ): Promise<string> => {
+    const report = await this.sendMessageAndGetResponse(
+      threadId,
+      this.nutriReportAssistantId,
+      text
+    );
+
+    return report;
+  };
+
+  public mealTextReportToJson = async (
+    mealTextReport: string
+  ): Promise<TMeal | null> => {
+    try {
+      const response = await this.openai.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content:
+              "you're analyzing a meal report message. JSON format: {calories: number, protein: number, fat: number, carbohydrate: number}"
+          },
+          { role: 'user', content: mealTextReport }
+        ],
+        model: 'gpt-3.5-turbo',
+        response_format: { type: 'json_object' }
+      });
+
+      const meal: TMeal = JSON.parse(response.choices[0].message.content);
+
+      return meal;
+    } catch (e) {
+      this.loggerService.error({ e });
+      return null;
+    }
+  };
+
+  async createThread(): Promise<string> {
+    const thread = await this.openai.beta.threads.create();
+    return thread.id;
+  }
+
+  async sendMessageAndGetResponse(
+    threadId: string,
+    assistantId: string,
+    message: string
+  ) {
+    try {
+      await this.sendMessage(threadId, message);
+      await this.waitForResponse(threadId, assistantId);
+      const { content } = (await this.getHistory(threadId, 1)).pop();
+
+      if (content && content[0] && 'text' in content[0]) {
+        return content[0].text.value;
+      }
+
+      return '';
+    } catch (e) {
+      throw e;
+    }
   }
 
   async audioToTextTranscription(
@@ -53,25 +123,40 @@ export class GptService implements IGptService {
     return response;
   }
 
-  async sendMessage(threadId: string, message: string) {
-    await this.openai.beta.threads.messages.create(threadId, {
-      role: 'user',
-      content: message
-    });
+  private async sendMessage(threadId: string, message: string) {
+    try {
+      await this.openai.beta.threads.messages.create(threadId, {
+        role: 'user',
+        content: message
+      });
+    } catch (e) {
+      if (e.error && e.error.message) {
+        const regex =
+          /Can't add messages to thread_[A-Za-z0-9]+ while a run (run_[A-Za-z0-9]+) is active\./;
+        const match = e.error.message.match(regex);
+        if (match) {
+          const runId = match[1];
+          console.log(runId);
+          await this.waitForRun(threadId, runId);
+          return this.sendMessage(threadId, message);
+        }
+      }
+
+      throw e;
+    }
   }
 
-  async waitForResponse(threadId: string) {
-    const myRun = await this.openai.beta.threads.runs.create(threadId, {
-      assistant_id: this.configService.get('ASSISTANT_ID')
-    });
+  private async waitForRun(threadId: string, runId: string) {
+    const run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
 
     const retrieveRun = async () => {
       let keepRetrievingRun: OpenAI.Beta.Threads.Runs.Run;
 
-      while (myRun.status !== 'completed') {
+      while (run.status !== 'completed') {
+        console.log(run);
         keepRetrievingRun = await this.openai.beta.threads.runs.retrieve(
           threadId,
-          myRun.id
+          run.id
         );
 
         if (keepRetrievingRun.status === 'completed') {
@@ -82,15 +167,10 @@ export class GptService implements IGptService {
     await retrieveRun();
   }
 
-  async sendMessageAndGetResponse(threadId: string, message: string) {
-    await this.sendMessage(threadId, message);
-    await this.waitForResponse(threadId);
-    const response = (await this.getHistory(threadId, 1)).pop();
-    return response;
-  }
-
-  async createThread(): Promise<string> {
-    const thread = await this.openai.beta.threads.create();
-    return thread.id;
+  private async waitForResponse(threadId: string, assistantId: string) {
+    const myRun = await this.openai.beta.threads.runs.create(threadId, {
+      assistant_id: assistantId
+    });
+    await this.waitForRun(threadId, myRun.id);
   }
 }

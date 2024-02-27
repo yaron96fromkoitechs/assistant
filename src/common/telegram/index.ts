@@ -1,24 +1,23 @@
 import path from 'path';
-import { Scenes, Telegraf, session } from 'telegraf';
+import { Scenes, session } from 'telegraf';
 import I18n from 'telegraf-i18n';
 import { Redis } from '@telegraf/session/redis';
 
 import { ILoggerService } from 'utils/logger/logger.interface';
 import { IConfigService } from 'utils/config/config.interface';
 
-import { IContext } from './context/context.interface';
 import { BaseSceneHandler, Handler, Scene } from './handlers/handler.class';
 import { StartCommandHandler } from './handlers/commands/start.command';
 import { ChatSceneHandler } from 'entities/chat/chat.scene';
-import { UserSettingsSceneHandler } from 'entities/user/settings/user.settings.scene';
+import { UserSettingsSceneHandler } from 'entities/user/bio/user.bio.scene';
 
 import { inject, injectable } from 'inversify';
 import { TYPES } from 'types';
+import { TelegramService } from 'utils/telegram/telegram.service';
+import { MealsSceneHandler } from 'entities/meal/meal.scene';
 
 @injectable()
 export class TelegramBot {
-  public bot: Telegraf<IContext>;
-
   private handlers: Handler[] = [];
   private baseSceneHandlers: BaseSceneHandler[] = [];
   private wizardScenes: Scene[] = [];
@@ -28,47 +27,42 @@ export class TelegramBot {
     private readonly logger: ILoggerService,
     @inject(TYPES.IConfigService)
     private readonly config: IConfigService,
+    @inject(TYPES.TelegramService)
+    public readonly telegramService: TelegramService,
 
     @inject(TYPES.ChatSceneHandler)
     private readonly chatSceneHandler: ChatSceneHandler,
     @inject(TYPES.UserSettingsSceneHandler)
-    private readonly userSettingsSceneHandler: UserSettingsSceneHandler
+    private readonly userSettingsSceneHandler: UserSettingsSceneHandler,
+    @inject(TYPES.MealSceneHandler)
+    private readonly mealSceneHandler: MealsSceneHandler
   ) {
-    this.bot = new Telegraf<IContext>(this.config.get('TELEGRAM_TOKEN'));
+    this.init();
+  }
+
+  private init() {
+    this.logger.log('[TELEGRAM BOT]', 'INIT');
 
     if (this.config.get('ENVIRONMENT') === 'PRODUCTION') {
-      this.bot.createWebhook({
+      this.telegramService.bot.createWebhook({
         domain: this.config.get('DOMAIN')
       });
     }
 
-    // Enable graceful stop
-    process.once('SIGINT', () => {
-      this.bot.stop('SIGINT');
-      this.logger.log('***TELEGRAM BOT***', 'STOPPED');
-    });
-    process.once('SIGTERM', () => {
-      this.bot.stop('SIGTERM');
-      this.logger.log('***TELEGRAM BOT***', 'STOPPED');
-    });
-  }
-
-  public init() {
-    this.logger.log('***TELEGRAM BOT***', 'INIT');
-
+    this.gracefulShutdown();
     this.middleware();
     this.handle();
 
-    this.bot.launch();
-    this.logger.log('***TELEGRAM BOT***', 'LAUNCHED');
+    this.telegramService.bot.launch();
+    this.logger.log('[TELEGRAM BOT]', 'LAUNCHED');
   }
 
   private middleware() {
     const redisStore: any = Redis({
-      url: this.config.get('REDIS_URL')
+      url: `${this.config.get('REDIS_HOST')}:${this.config.get('REDIS_PORT')}`
     });
 
-    this.bot.use(session({ store: redisStore }));
+    this.telegramService.bot.use(session({ store: redisStore }));
 
     const i18n = new I18n({
       useSession: true,
@@ -78,26 +72,34 @@ export class TelegramBot {
       directory: path.resolve('src/common/locales')
     });
 
-    this.bot.use(i18n.middleware());
+    this.telegramService.bot.use(i18n.middleware());
   }
 
   private handle() {
-    this.baseSceneHandlers = [this.chatSceneHandler];
+    this.baseSceneHandlers = [this.chatSceneHandler, this.mealSceneHandler];
     this.wizardScenes = [this.userSettingsSceneHandler];
-
     for (const handler of this.baseSceneHandlers) {
       handler.handle();
     }
-
     const stage = new Scenes.Stage([
       ...this.baseSceneHandlers.map((handler) => handler.scene),
       ...this.wizardScenes.map((handler) => handler.scene)
     ]);
-    this.bot.use(stage.middleware());
-
-    this.handlers = [new StartCommandHandler(this.bot)];
+    this.telegramService.bot.use(stage.middleware());
+    this.handlers = [new StartCommandHandler(this.telegramService.bot)];
     for (const handler of this.handlers) {
       handler.handle();
     }
+  }
+
+  private gracefulShutdown() {
+    process.once('SIGINT', () => {
+      this.telegramService.bot.stop('SIGINT');
+      this.logger.log('[TELEGRAM BOT]', 'STOPPED');
+    });
+    process.once('SIGTERM', () => {
+      this.telegramService.bot.stop('SIGTERM');
+      this.logger.log('[TELEGRAM BOT]', 'STOPPED');
+    });
   }
 }

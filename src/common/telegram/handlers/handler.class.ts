@@ -2,6 +2,7 @@ import { injectable } from 'inversify';
 import { Scenes, Telegraf } from 'telegraf';
 import { BaseScene } from 'telegraf/typings/scenes';
 import {
+  IBaseSceneContext,
   IContext,
   IWizardSceneContext
 } from 'common/telegram/context/context.interface';
@@ -17,14 +18,14 @@ export abstract class Handler {
 export abstract class Scene {
   abstract sceneId: string;
   abstract scene:
-    | BaseScene<Scenes.SceneContext>
+    | BaseScene<IBaseSceneContext>
     | Scenes.WizardScene<IWizardSceneContext>;
 }
 
 @injectable()
 export abstract class BaseSceneHandler {
   abstract sceneId: string;
-  abstract scene: BaseScene<Scenes.SceneContext>;
+  abstract scene: BaseScene<IBaseSceneContext>;
 
   abstract handle(): void;
 }

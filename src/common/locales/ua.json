@@ -36,7 +36,7 @@
   },
   "telegram": {
     "greeting": "Привіт!",
-    "settings": {
+    "bio": {
       "choose_lang": "Виберіть вашу мову",
       "enter_name": "Введіть ваше ім'я",
       "select_gender": "Виберіть вашу стать",
@@ -50,7 +50,9 @@
       "enter": "Почнемо"
     },
     "buttons": {
-      "settings": "Налаштування"
+      "settings": "Налаштування",
+      "meals": "Мої прийоми їжі",
+      "chat": "Чат"
     }
   }
 }
