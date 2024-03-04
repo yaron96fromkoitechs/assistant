@@ -1,4 +1,5 @@
 import { IContext } from 'common/telegram/context/context.interface';
+import { UserService } from 'entities/user/user.service';
 import { inject, injectable } from 'inversify';
 import { Markup, Telegraf } from 'telegraf';
 import { ChatAction } from 'telegraf/typings/core/types/typegram';
@@ -6,7 +7,7 @@ import { FmtString } from 'telegraf/typings/format';
 import { ExtraReplyMessage } from 'telegraf/typings/telegram-types';
 import { TYPES } from 'types';
 import { IConfigService } from 'utils/config/config.interface';
-import { ILoggerService } from 'utils/logger/logger.interface';
+import { LocaleService } from 'utils/locale/locale.service';
 
 // FIXME:
 const inputCbData = 'input';
@@ -16,12 +17,12 @@ export class TelegramService {
   public bot: Telegraf<IContext>;
 
   constructor(
-    @inject(TYPES.ILoggerService)
-    private readonly logger: ILoggerService,
     @inject(TYPES.IConfigService)
-    private readonly config: IConfigService
+    private readonly configService: IConfigService,
+    @inject(TYPES.IUserService) private readonly userService: UserService,
+    @inject(TYPES.LocaleService) private readonly localeService: LocaleService
   ) {
-    this.bot = new Telegraf<IContext>(this.config.get('TELEGRAM_TOKEN'));
+    this.bot = new Telegraf<IContext>(this.configService.get('TELEGRAM_TOKEN'));
   }
 
   public async sendMessage(
@@ -32,19 +33,21 @@ export class TelegramService {
     return this.bot.telegram.sendMessage(chatId, text, extra);
   }
 
-  public async sendAction(chatId: number | string, action: ChatAction) {
-    return this.bot.telegram.sendChatAction(chatId, action);
+  public async sendAction(telegramId: number | string, action: ChatAction) {
+    return this.bot.telegram.sendChatAction(telegramId, action);
   }
 
-  public async sendMealReportResult(chatId: number | string, text: string) {
+  public async sendMealReportResult(telegramId: number, text: string) {
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userService.getLocale(userId);
+
     return this.sendMessage(
-      chatId,
+      telegramId,
       text,
       Markup.inlineKeyboard([
         [
           {
-            // FIXME:
-            text: 'Внести эти данные в мой дневник',
+            text: this.localeService.t('telegram.chat.add-to-dairy', locale),
             callback_data: inputCbData
           }
         ]

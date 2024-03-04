@@ -1,6 +1,7 @@
+import { inject, injectable } from 'inversify';
+
 import path from 'path';
 import { Scenes, session } from 'telegraf';
-import I18n from 'telegraf-i18n';
 import { Redis } from '@telegraf/session/redis';
 
 import { ILoggerService } from 'utils/logger/logger.interface';
@@ -11,10 +12,10 @@ import { StartCommandHandler } from './handlers/commands/start.command';
 import { ChatSceneHandler } from 'entities/chat/chat.scene';
 import { UserSettingsSceneHandler } from 'entities/user/bio/user.bio.scene';
 
-import { inject, injectable } from 'inversify';
-import { TYPES } from 'types';
 import { TelegramService } from 'utils/telegram/telegram.service';
 import { MealsSceneHandler } from 'entities/meal/meal.scene';
+
+import { TYPES } from 'types';
 
 @injectable()
 export class TelegramBot {
@@ -36,15 +37,11 @@ export class TelegramBot {
     private readonly userSettingsSceneHandler: UserSettingsSceneHandler,
     @inject(TYPES.MealSceneHandler)
     private readonly mealSceneHandler: MealsSceneHandler
-  ) {
-    this.init();
-  }
+  ) {}
 
-  private init() {
-    this.logger.log('[TELEGRAM BOT]', 'INIT');
-
+  public async init() {
     if (this.config.get('ENVIRONMENT') === 'PRODUCTION') {
-      this.telegramService.bot.createWebhook({
+      await this.telegramService.bot.createWebhook({
         domain: this.config.get('DOMAIN')
       });
     }
@@ -63,16 +60,6 @@ export class TelegramBot {
     });
 
     this.telegramService.bot.use(session({ store: redisStore }));
-
-    const i18n = new I18n({
-      useSession: true,
-      defaultLanguage: 'en',
-      defaultLanguageOnMissing: true,
-      // allowMissing: false, // Default true
-      directory: path.resolve('src/common/locales')
-    });
-
-    this.telegramService.bot.use(i18n.middleware());
   }
 
   private handle() {

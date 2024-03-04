@@ -1,22 +1,26 @@
 import { inject, injectable } from 'inversify';
+
 import { Markup, Scenes } from 'telegraf';
-
-import { IGptService } from 'utils/gpt/gpt.interface';
-import { IUserService } from 'entities/user/user.service.interface';
-
-import { BaseSceneHandler } from 'common/telegram/handlers/handler.class';
-import { IBaseSceneContext } from 'common/telegram/context/context.interface';
 import { message } from 'telegraf/filters';
 import { BaseScene } from 'telegraf/typings/scenes';
 
-import { SCENES } from 'common/telegram/scenes.types';
-import {
-  getCallbackData,
-  getTextFromCallback,
-  getUserId
-} from 'common/telegram/helpers';
+import { IUserService } from 'entities/user/user.service.interface';
+import { ChatService } from './chat.service';
+import { LocaleService } from 'utils/locale/locale.service';
 import { JobType, QueueService, Queues } from 'utils/queue/queue.service';
 
+import { BaseSceneHandler } from 'common/telegram/handlers/handler.class';
+import { IBaseSceneContext } from 'common/telegram/context/context.interface';
+
+import {
+  getCallbackData,
+  getMessageText,
+  getTextFromCallback,
+  getTelegramUserId,
+  getVoiceFileId
+} from 'common/telegram/helpers';
+
+import { SCENES } from 'common/telegram/scenes.types';
 import { TYPES } from 'types';
 
 @injectable()
@@ -25,9 +29,10 @@ export class ChatSceneHandler extends BaseSceneHandler {
   scene: BaseScene<IBaseSceneContext>;
 
   constructor(
-    @inject(TYPES.IGptService) private readonly gptService: IGptService,
     @inject(TYPES.IUserService) private readonly userService: IUserService,
-    @inject(TYPES.QueueService) private readonly queueService: QueueService
+    @inject(TYPES.QueueService) private readonly queueService: QueueService,
+    @inject(TYPES.LocaleService) private readonly localeService: LocaleService,
+    @inject(TYPES.ChatService) private readonly chatService: ChatService
   ) {
     super();
     this.sceneId = SCENES.CHAT;
@@ -36,40 +41,45 @@ export class ChatSceneHandler extends BaseSceneHandler {
 
   handle(): void {
     this.scene.enter(async (ctx) => {
-      const userId = getUserId(ctx);
+      const telegramId = getTelegramUserId(ctx);
+      const userId = await this.userService.getUserIdByTelegramId(telegramId);
+      const locale = await this.userService.getLocale(userId);
 
-      // FIXME:
-      if (!ctx.session.nutriReportThreadId) {
-        const threadId = await this.gptService.createThread();
-        ctx.session.nutriReportThreadId = threadId;
+      const threadId = await this.chatService.getNutriReportThreadId(userId);
+      if (!threadId) {
+        await this.chatService.createAndSetNutriReportThreadId(userId);
       }
 
-      const user = await this.userService.getUserByTelegram(userId);
+      const user = await this.userService.getUserByTelegram(telegramId);
       if (!user) {
-        await this.userService.createUserByTelegram(userId);
+        await this.userService.createUserByTelegram(telegramId);
       }
 
       ctx.sendMessage(
-        ctx.i18n.t('telegram.chat.enter'),
+        this.localeService.t('telegram.chat.enter', locale),
         Markup.keyboard([
-          [ctx.i18n.t('telegram.buttons.meals')],
-          [ctx.i18n.t('telegram.buttons.settings')]
+          [this.localeService.t('telegram.buttons.meals', locale)],
+          [this.localeService.t('telegram.buttons.settings', locale)]
         ]).resize()
       );
     });
 
     this.scene.on(message('text'), async (ctx) => {
-      const {
-        from: { id: telegramId },
-        message: { text },
-        session: { nutriReportThreadId: threadId }
-      } = ctx;
+      const telegramId = getTelegramUserId(ctx);
+      const text = getMessageText(ctx);
 
-      if (text === ctx.i18n.t('telegram.buttons.settings')) {
+      const userId = await this.userService.getUserIdByTelegramId(telegramId);
+      const locale = await this.userService.getLocale(userId);
+
+      if (text === this.localeService.t('telegram.buttons.settings', locale)) {
         return ctx.scene.enter(SCENES.SETTINGS);
-      } else if (text === ctx.i18n.t('telegram.buttons.meals')) {
+      } else if (
+        text === this.localeService.t('telegram.buttons.meals', locale)
+      ) {
         return ctx.scene.enter(SCENES.MEALS);
       }
+
+      const threadId = await this.chatService.getNutriReportThreadId(userId);
 
       await this.queueService
         .getQueue(Queues.TELEGRAM)
@@ -81,28 +91,24 @@ export class ChatSceneHandler extends BaseSceneHandler {
     });
 
     this.scene.on(message('voice'), async (ctx) => {
-      const {
-        session: { nutriReportThreadId },
-        update: {
-          message: {
-            voice: { file_id }
-          }
-        }
-      } = ctx;
+      const telegramId = getTelegramUserId(ctx);
+      const fileId = getVoiceFileId(ctx);
+
+      const userId = await this.userService.getUserIdByTelegramId(telegramId);
+      const threadId = await this.chatService.getNutriReportThreadId(userId);
 
       await this.queueService
         .getQueue(Queues.TELEGRAM)
         .add(JobType.PROCESS_MEAL_AUDIO_REPORT, {
-          fileId: file_id,
-          threadId: nutriReportThreadId,
-          telegramId: ctx.from.id
+          fileId,
+          threadId,
+          telegramId
         });
     });
 
     this.scene.on('callback_query', async (ctx) => {
       try {
-        const userId = getUserId(ctx);
-
+        const telegramId = getTelegramUserId(ctx);
         const cbData = getCallbackData(ctx);
 
         switch (cbData) {
@@ -113,8 +119,7 @@ export class ChatSceneHandler extends BaseSceneHandler {
               .getQueue(Queues.TELEGRAM)
               .add(JobType.PROCESS_MEAL_TEXT_REPORT_TO_JSON, {
                 text,
-                // FIXME:
-                telegramId: userId
+                telegramId
               });
             break;
           }
