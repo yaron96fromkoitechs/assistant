@@ -22,14 +22,14 @@ model UserModel {
 }
 
 model MealModel {
-  id           Int       @id @default(autoincrement())
-  user         UserModel @relation(fields: [userId], references: [id])
-  userId       Int
+  id            Int       @id @default(autoincrement())
+  user          UserModel @relation(fields: [userId], references: [id])
+  userId        Int
   //
-  calories     Int
-  protein      Int
-  fat          Int
-  carbohydrate Int
+  calories      Int
+  proteins      Int
+  fats          Int
+  carbohydrates Int
   //
-  createdAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 }

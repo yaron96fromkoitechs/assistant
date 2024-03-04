@@ -1,32 +1,45 @@
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 import { Markup, Scenes } from 'telegraf';
 import { WizardScene } from 'telegraf/typings/scenes';
 
 import { IWizardSceneContext } from 'common/telegram/context/context.interface';
 import { Scene } from 'common/telegram/handlers/handler.class';
 
-import { getCallbackData, getMessageText } from 'common/telegram/helpers';
+import {
+  getCallbackData,
+  getMessageText,
+  getTelegramUserId
+} from 'common/telegram/helpers';
 
 import { SCENES } from 'common/telegram/scenes.types';
+import { TYPES } from 'types';
+import { LocaleService } from 'utils/locale/locale.service';
+import { UserBioService } from './user.bio.service';
+import { IUserService } from '../user.service.interface';
 
 @injectable()
 export class UserSettingsSceneHandler extends Scene {
   sceneId: string;
   scene: WizardScene<IWizardSceneContext>;
 
-  constructor() {
+  constructor(
+    @inject(TYPES.LocaleService) private readonly localeService: LocaleService,
+    @inject(TYPES.UserBioService)
+    private readonly userBioService: UserBioService,
+    @inject(TYPES.IUserService) private readonly userService: IUserService
+  ) {
     super();
     this.sceneId = SCENES.SETTINGS;
 
     this.scene = new Scenes.WizardScene<IWizardSceneContext>(
       this.sceneId,
 
-      async function step0(ctx) {
-        await askLang(ctx);
+      async (ctx) => {
+        await this.askLang(ctx);
         ctx.wizard.next();
       },
 
-      async function step1(ctx) {
+      async (ctx) => {
         try {
           const cbData = getCallbackData(ctx);
 
@@ -34,22 +47,26 @@ export class UserSettingsSceneHandler extends Scene {
             throw new Error('error');
           }
 
-          const langCodes = Object.keys(ctx.i18n.repository);
+          const langCodes = this.localeService.getAvailableLangs();
 
           if (!langCodes.includes(cbData)) {
             throw new Error('error');
           }
 
-          ctx.i18n.locale(cbData);
-          await askName(ctx);
+          const telegramId = getTelegramUserId(ctx);
+          const userId =
+            await this.userService.getUserIdByTelegramId(telegramId);
+
+          await this.userBioService.setLocale(userId, cbData);
+          await this.askName(ctx);
           ctx.wizard.next();
         } catch (e) {
           ctx.reply(e.message);
-          return askLang(ctx);
+          return this.askLang(ctx);
         }
       },
 
-      async function step2(ctx) {
+      async (ctx) => {
         try {
           const text = getMessageText(ctx);
 
@@ -57,16 +74,19 @@ export class UserSettingsSceneHandler extends Scene {
             throw new Error('error');
           }
 
-          ctx.session.name = text;
-          await askGender(ctx);
+          const telegramId = getTelegramUserId(ctx);
+          const userId =
+            await this.userService.getUserIdByTelegramId(telegramId);
+          await this.userBioService.setName(userId, text);
+          await this.askGender(ctx);
           ctx.wizard.next();
         } catch (e) {
           ctx.reply(e.message);
-          return askName(ctx);
+          return this.askName(ctx);
         }
       },
 
-      async function step3(ctx) {
+      async (ctx) => {
         try {
           const cbData = getCallbackData(ctx);
 
@@ -74,24 +94,28 @@ export class UserSettingsSceneHandler extends Scene {
             throw new Error('error');
           }
 
+          const telegramId = getTelegramUserId(ctx);
+          const userId =
+            await this.userService.getUserIdByTelegramId(telegramId);
+
           switch (cbData) {
+            case 'neutral':
             case 'male':
             case 'female': {
-              ctx.session.gender = cbData;
-              await askAge(ctx);
+              this.userBioService.setGender(userId, cbData);
+              await this.askAge(ctx);
               ctx.wizard.next();
             }
           }
         } catch (e) {
           ctx.reply(e.message);
-          return askGender(ctx);
+          return this.askGender(ctx);
         }
       },
 
-      async function step5(ctx) {
+      async (ctx) => {
         try {
           let age: any = getMessageText(ctx);
-
           if (!age) {
             throw new Error('error');
           }
@@ -102,16 +126,20 @@ export class UserSettingsSceneHandler extends Scene {
             throw new Error('error');
           }
 
-          ctx.session.age = age;
-          await askMeasurementSystem(ctx);
+          const telegramId = getTelegramUserId(ctx);
+          const userId =
+            await this.userService.getUserIdByTelegramId(telegramId);
+          await this.userBioService.setAge(userId, age);
+
+          await this.askMeasurementSystem(ctx);
           ctx.wizard.next();
         } catch (e) {
           ctx.reply(e.message);
-          return askAge(ctx);
+          return this.askAge(ctx);
         }
       },
 
-      async function step5(ctx) {
+      async (ctx) => {
         try {
           const cbData = getCallbackData(ctx);
 
@@ -122,8 +150,12 @@ export class UserSettingsSceneHandler extends Scene {
           switch (cbData) {
             case 'metric':
             case 'imperial': {
-              ctx.session.measureSystem = cbData;
-              await askHeight(ctx);
+              const telegramId = getTelegramUserId(ctx);
+              const userId =
+                await this.userService.getUserIdByTelegramId(telegramId);
+
+              this.userBioService.setMeasurementSystem(userId, cbData);
+              await this.askHeight(ctx);
               ctx.wizard.next();
               break;
             }
@@ -133,11 +165,11 @@ export class UserSettingsSceneHandler extends Scene {
           }
         } catch (e) {
           ctx.reply(e.message);
-          return askMeasurementSystem(ctx);
+          return this.askMeasurementSystem(ctx);
         }
       },
 
-      async function step6(ctx) {
+      async (ctx) => {
         try {
           let height: any = getMessageText(ctx);
 
@@ -151,16 +183,20 @@ export class UserSettingsSceneHandler extends Scene {
             throw new Error('error');
           }
 
-          ctx.session.height = height;
-          await askWeight(ctx);
+          const telegramId = getTelegramUserId(ctx);
+          const userId =
+            await this.userService.getUserIdByTelegramId(telegramId);
+          await this.userBioService.setHeight(userId, height);
+
+          await this.askWeight(ctx);
           ctx.wizard.next();
         } catch (e) {
           ctx.reply(e.message);
-          return askHeight(ctx);
+          return this.askHeight(ctx);
         }
       },
 
-      async function step7(ctx) {
+      async (ctx) => {
         try {
           let weight: any = getMessageText(ctx);
 
@@ -174,16 +210,20 @@ export class UserSettingsSceneHandler extends Scene {
             throw new Error('error');
           }
 
-          ctx.session.weight = weight;
-          await askGoal(ctx);
+          const telegramId = getTelegramUserId(ctx);
+          const userId =
+            await this.userService.getUserIdByTelegramId(telegramId);
+          await this.userBioService.setWeight(userId, weight);
+
+          await this.askGoal(ctx);
           ctx.wizard.next();
         } catch (e) {
           ctx.reply('error');
-          return askWeight(ctx);
+          return this.askWeight(ctx);
         }
       },
 
-      async function step8(ctx) {
+      async (ctx) => {
         try {
           const cbData = getCallbackData(ctx);
 
@@ -195,7 +235,10 @@ export class UserSettingsSceneHandler extends Scene {
             case 'gain':
             case 'keep':
             case 'lose': {
-              ctx.session.goal = cbData;
+              const telegramId = getTelegramUserId(ctx);
+              const userId =
+                await this.userService.getUserIdByTelegramId(telegramId);
+              await this.userBioService.setGoal(userId, cbData);
               break;
             }
             default: {
@@ -203,123 +246,223 @@ export class UserSettingsSceneHandler extends Scene {
             }
           }
 
-          ctx.reply(aboutMessage(ctx));
+          await this.aboutMessage(ctx);
           ctx.scene.enter(SCENES.CHAT);
         } catch (e) {
           ctx.reply('error');
-          return askGoal(ctx);
+          return this.askGoal(ctx);
         }
       }
     );
   }
-}
 
-const aboutMessage = (ctx: IWizardSceneContext): string => {
-  const result = [
-    ctx.session.name
-      ? `${ctx.i18n.t('core.about.name')}: ${ctx.session.name}`
-      : '',
-    ctx.session.gender
-      ? `${ctx.i18n.t('core.about.gender')}: ${ctx.i18n.t(
-          `core.genders.${ctx.session.gender}`
-        )}`
-      : '',
-    ctx.session.age
-      ? `${ctx.i18n.t('core.about.age')}: ${ctx.session.age}`
-      : '',
-    ctx.session.weight
-      ? `${ctx.i18n.t('core.about.weight')}: ${ctx.session.weight} ${ctx.i18n.t(
-          `core.measure_system.${ctx.session.measureSystem}.weight_short`
-        )}`
-      : '',
-    ctx.session.height
-      ? `${ctx.i18n.t('core.about.height')}: ${ctx.session.height} ${ctx.i18n.t(
-          `core.measure_system.${ctx.session.measureSystem}.height_short`
-        )}`
-      : '',
-    ctx.session.goal
-      ? `${ctx.i18n.t('core.about.goal')}: ${ctx.i18n.t(
-          `core.goals.${ctx.session.goal}`
-        )}`
-      : ''
-  ];
-  return result.join('\n');
-};
+  private async askLang(ctx: IWizardSceneContext) {
+    const langCodes = this.localeService.getAvailableLangs();
 
-const askLang = async (ctx: IWizardSceneContext) => {
-  const langCodes = Object.keys(ctx.i18n.repository);
+    const msg = langCodes
+      .map((code) => {
+        return this.localeService.t('telegram.bio.choose_lang', code);
+      })
+      .join('\n');
 
-  return ctx.reply(
-    ctx.i18n.t('telegram.bio.choose_lang'),
-    Markup.inlineKeyboard([
-      ...langCodes.map((langCode) => [
-        Markup.button.callback(langCode.toLocaleUpperCase(), langCode)
+    return ctx.reply(
+      msg,
+      Markup.inlineKeyboard([
+        ...langCodes.map((langCode) => [
+          Markup.button.callback(langCode.toLocaleUpperCase(), langCode)
+        ])
       ])
-    ])
-  );
-};
+    );
+  }
 
-const askName = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(ctx.i18n.t('telegram.bio.enter_name'));
-};
+  private async askName(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userBioService.getLocale(userId);
+    const msg = this.localeService.t('telegram.bio.enter_name', locale);
+    return ctx.reply(msg);
+  }
 
-const askAge = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(ctx.i18n.t('telegram.bio.enter_age'));
-};
+  private async askGender(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userBioService.getLocale(userId);
+    const msg = this.localeService.t('telegram.bio.select_gender', locale);
+    return ctx.reply(
+      msg,
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback(
+            `${this.localeService.t('core.genders.male', locale)}`,
+            `male`
+          )
+        ],
+        [
+          Markup.button.callback(
+            `${this.localeService.t('core.genders.female', locale)}`,
+            `female`
+          )
+        ]
+      ])
+    );
+  }
 
-const askGender = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(
-    ctx.i18n.t('telegram.bio.select_gender'),
-    Markup.inlineKeyboard([
-      [Markup.button.callback(`${ctx.i18n.t('core.genders.male')}`, `male`)],
-      [Markup.button.callback(`${ctx.i18n.t('core.genders.female')}`, `female`)]
-    ])
-  );
-};
+  private async askAge(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userBioService.getLocale(userId);
+    const msg = this.localeService.t('telegram.bio.enter_age', locale);
 
-const askMeasurementSystem = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(
-    ctx.i18n.t('telegram.bio.select_measure'),
-    Markup.inlineKeyboard([
-      [
-        Markup.button.callback(
-          `${ctx.i18n.t('core.measure_system.metric.title')}`,
-          `metric`
-        )
-      ],
-      [
-        Markup.button.callback(
-          `${ctx.i18n.t('core.measure_system.imperial.title')}`,
-          `imperial`
-        )
-      ]
-    ])
-  );
-};
+    return ctx.reply(msg);
+  }
 
-const askHeight = async (ctx: IWizardSceneContext) => {
-  const measure = ctx.session.measureSystem;
-  const heightUnit = ctx.i18n.t(`core.measure_system.${measure}.height`);
-  const message = `${ctx.i18n.t('telegram.bio.enter_height')} (${heightUnit})`;
+  private async askMeasurementSystem(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userBioService.getLocale(userId);
+    const msg = this.localeService.t('telegram.bio.select_measure', locale);
 
-  return ctx.reply(message);
-};
+    return ctx.reply(
+      msg,
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback(
+            this.localeService.t('core.measure_system.metric.title', locale),
+            `metric`
+          )
+        ],
+        [
+          Markup.button.callback(
+            this.localeService.t('core.measure_system.imperial.title', locale),
+            `imperial`
+          )
+        ]
+      ])
+    );
+  }
 
-const askWeight = async (ctx: IWizardSceneContext) => {
-  const measure = ctx.session.measureSystem;
-  const heightUnit = ctx.i18n.t(`core.measure_system.${measure}.weight`);
-  const message = `${ctx.i18n.t('telegram.bio.enter_weight')} (${heightUnit})`;
+  private async askHeight(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const measure = await this.userBioService.getMeasurementSystem(userId);
+    const locale = await this.userBioService.getLocale(userId);
 
-  return ctx.reply(message);
-};
+    const heightUnit = this.localeService.t(
+      `core.measure_system.${measure}.height`,
+      locale
+    );
 
-const askGoal = async (ctx: IWizardSceneContext) => {
-  return ctx.reply(
-    `${ctx.i18n.t('telegram.bio.select_goal')}:\n`,
-    Markup.inlineKeyboard([
-      [Markup.button.callback(`${ctx.i18n.t('core.goals.lose')}`, `lose`)],
-      [Markup.button.callback(`${ctx.i18n.t('core.goals.keep')}`, `keep`)],
-      [Markup.button.callback(`${ctx.i18n.t('core.goals.gain')}`, `gain`)]
-    ])
-  );
-};
+    const msg = `${this.localeService.t(
+      'telegram.bio.enter_height',
+      locale
+    )} (${heightUnit})`;
+
+    return ctx.reply(msg);
+  }
+
+  private async askWeight(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const measure = await this.userBioService.getMeasurementSystem(userId);
+    const locale = await this.userBioService.getLocale(userId);
+
+    const weightUnit = this.localeService.t(
+      `core.measure_system.${measure}.weight`,
+      locale
+    );
+
+    const msg = `${this.localeService.t(
+      'telegram.bio.enter_weight',
+      locale
+    )} (${weightUnit})`;
+
+    return ctx.reply(msg);
+  }
+
+  private async askGoal(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userBioService.getLocale(userId);
+
+    const msg = `${this.localeService.t(
+      'telegram.bio.select_goal',
+      locale
+    )}:\n`;
+
+    return ctx.reply(
+      msg,
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback(
+            `${this.localeService.t('core.goals.lose', locale)}`,
+            `lose`
+          )
+        ],
+        [
+          Markup.button.callback(
+            `${this.localeService.t('core.goals.keep', locale)}`,
+            `keep`
+          )
+        ],
+        [
+          Markup.button.callback(
+            `${this.localeService.t('core.goals.gain', locale)}`,
+            `gain`
+          )
+        ]
+      ])
+    );
+  }
+
+  private async aboutMessage(ctx: IWizardSceneContext) {
+    const telegramId = getTelegramUserId(ctx);
+    const userId = await this.userService.getUserIdByTelegramId(telegramId);
+    const locale = await this.userBioService.getLocale(userId);
+
+    const name = await this.userBioService.getName(userId);
+    const gender = await this.userBioService.getGender(userId);
+    const age = await this.userBioService.getAge(userId);
+    const weight = await this.userBioService.getWeight(userId);
+    const height = await this.userBioService.getHeight(userId);
+    const goal = await this.userBioService.getGoal(userId);
+    const measureSystem =
+      await this.userBioService.getMeasurementSystem(userId);
+
+    const msg = [
+      name ? `${this.localeService.t('core.about.name', locale)}: ${name}` : '',
+      gender
+        ? `${this.localeService.t(
+            'core.about.gender',
+            locale
+          )}: ${this.localeService.t(`core.genders.${gender}`, locale)}`
+        : '',
+      age ? `${this.localeService.t('core.about.age', locale)}: ${age}` : '',
+      weight
+        ? `${this.localeService.t(
+            'core.about.weight',
+            locale
+          )}: ${weight} ${this.localeService.t(
+            `core.measure_system.${measureSystem}.weight_short`,
+            locale
+          )}`
+        : '',
+      height
+        ? `${this.localeService.t(
+            'core.about.height',
+            locale
+          )}: ${height} ${this.localeService.t(
+            `core.measure_system.${measureSystem}.height_short`,
+            locale
+          )}`
+        : '',
+      goal
+        ? `${this.localeService.t(
+            'core.about.goal',
+            locale
+          )}: ${this.localeService.t(`core.goals.${goal}`, locale)}`
+        : ''
+    ].join('\n');
+
+    return ctx.reply(msg);
+  }
+}

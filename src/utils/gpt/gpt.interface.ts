@@ -11,7 +11,7 @@ export interface IGptService {
 //FIXME:
 export type TMeal = {
   calories: number;
-  protein: number;
-  fat: number;
-  carbohydrate: number;
+  proteins: number;
+  fats: number;
+  carbohydrates: number;
 };

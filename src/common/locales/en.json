@@ -32,10 +32,21 @@
       "gain": "Gain weight",
       "keep": "Keep weight",
       "lose": "Lose weight"
+    },
+    "macronutrients": {
+      "calories": "Calories",
+      "fats": "Fats",
+      "proteins": "Proteins",
+      "carbohydrates": "Carbohydrates"
     }
   },
   "telegram": {
     "greeting": "Hello!",
+    "buttons": {
+      "settings": "Settings",
+      "meals": "My Meals",
+      "chat": "Chat"
+    },
     "bio": {
       "choose_lang": "Choose your language",
       "enter_name": "Enter your name",
@@ -47,12 +58,12 @@
       "select_goal": "Select your diet goal"
     },
     "chat": {
-      "enter": "Let's get started"
+      "enter": "Let's get started",
+      "add-to-dairy": "Put in the diary"
     },
-    "buttons": {
-      "settings": "Settings",
-      "meals": "My Meals",
-      "chat": "Chat"
+    "meals": {
+      "on-enter": "Meals menu",
+      "no-meals": "You haven't added meals yet"
     }
   }
 }

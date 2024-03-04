@@ -50,7 +50,7 @@ export class GptService implements IGptService {
           {
             role: 'system',
             content:
-              "you're analyzing a meal report message. JSON format: {calories: number, protein: number, fat: number, carbohydrate: number}"
+              "you're analyzing a meal report message. JSON format: {calories: number, proteins: number, fats: number, carbohydrates: number}"
           },
           { role: 'user', content: mealTextReport }
         ],

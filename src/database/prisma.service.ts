@@ -10,12 +10,16 @@ export class PrismaService {
 
   constructor(@inject(TYPES.ILoggerService) private logger: ILoggerService) {
     this.client = new PrismaClient();
-    this.logger.log('[PrismaService] Successfully connected to database');
+  }
+
+  async init(): Promise<void> {
+    await this.connect();
   }
 
   async connect(): Promise<void> {
     try {
       await this.client.$connect();
+      this.logger.log('[PrismaService] Successfully connected to database');
     } catch (e) {
       if (e instanceof Error) {
         this.logger.log(

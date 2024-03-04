@@ -37,7 +37,7 @@ export class WebServer {
     });
   }
 
-  public init() {
+  public async init() {
     this.middleware();
     this.routes();
 

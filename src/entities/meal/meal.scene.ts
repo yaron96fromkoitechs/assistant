@@ -1,25 +1,23 @@
 import { inject, injectable } from 'inversify';
+
 import { Markup, Scenes } from 'telegraf';
-
-//FIXME:
-import { MealModel } from '@prisma/client';
-
-import { IUserService } from 'entities/user/user.service.interface';
-import { IMealService } from './user.meal.service.interface';
-
-import { BaseSceneHandler } from 'common/telegram/handlers/handler.class';
-import { IBaseSceneContext } from 'common/telegram/context/context.interface';
 import { message } from 'telegraf/filters';
 import { BaseScene } from 'telegraf/typings/scenes';
 
-import { SCENES } from 'common/telegram/scenes.types';
+import { IMealService } from './user.meal.service.interface';
+import { IUserService } from 'entities/user/user.service.interface';
+import { LocaleService } from 'utils/locale/locale.service';
 
-import { TYPES } from 'types';
+import { BaseSceneHandler } from 'common/telegram/handlers/handler.class';
+import { IBaseSceneContext } from 'common/telegram/context/context.interface';
 import {
   getCallbackData,
   getMessageText,
-  getUserId
+  getTelegramUserId
 } from 'common/telegram/helpers';
+
+import { SCENES } from 'common/telegram/scenes.types';
+import { TYPES } from 'types';
 
 @injectable()
 export class MealsSceneHandler extends BaseSceneHandler {
@@ -28,7 +26,8 @@ export class MealsSceneHandler extends BaseSceneHandler {
 
   constructor(
     @inject(TYPES.IUserService) private readonly userService: IUserService,
-    @inject(TYPES.IMealService) private readonly mealService: IMealService
+    @inject(TYPES.IMealService) private readonly mealService: IMealService,
+    @inject(TYPES.LocaleService) private readonly localeService: LocaleService
   ) {
     super();
     this.sceneId = SCENES.MEALS;
@@ -37,30 +36,44 @@ export class MealsSceneHandler extends BaseSceneHandler {
 
   handle(): void {
     this.scene.enter(async (ctx) => {
-      const id = getUserId(ctx);
-      const { text, keyboard } = await this.pagination(id, 1);
+      const telegramId = getTelegramUserId(ctx);
+      const userId = await this.userService.getUserIdByTelegramId(telegramId);
+      const locale = await this.userService.getLocale(userId);
+
       await ctx.sendMessage(
-        'Welcome bla-bla',
+        this.localeService.t('telegram.meals.on-enter', locale),
         Markup.keyboard([
-          [ctx.i18n.t('telegram.buttons.chat')],
-          [ctx.i18n.t('telegram.buttons.settings')]
+          [this.localeService.t('telegram.buttons.chat', locale)],
+          [this.localeService.t('telegram.buttons.settings', locale)]
         ]).resize()
       );
+
+      const { text, keyboard } = await this.pagination(userId, 1, locale);
+
       await ctx.sendMessage(text, keyboard);
     });
 
     this.scene.on(message('text'), async (ctx) => {
+      const telegramId = getTelegramUserId(ctx);
+      const userId = await this.userService.getUserIdByTelegramId(telegramId);
+      const locale = await this.userService.getLocale(userId);
+
       const text = getMessageText(ctx);
-      if (text === ctx.i18n.t('telegram.buttons.settings')) {
+
+      if (text === this.localeService.t('telegram.buttons.settings', locale)) {
         return ctx.scene.enter(SCENES.SETTINGS);
-      } else if (text === ctx.i18n.t('telegram.buttons.chat')) {
+      } else if (
+        text === this.localeService.t('telegram.buttons.chat', locale)
+      ) {
         return ctx.scene.enter(SCENES.CHAT);
       }
     });
 
     this.scene.on('callback_query', async (ctx) => {
       try {
-        const id = getUserId(ctx);
+        const telegramId = getTelegramUserId(ctx);
+        const userId = await this.userService.getUserIdByTelegramId(telegramId);
+        const locale = await this.userService.getLocale(userId);
         const cbData = getCallbackData(ctx);
 
         if (!cbData.startsWith(this.sceneId)) {
@@ -68,8 +81,9 @@ export class MealsSceneHandler extends BaseSceneHandler {
         }
 
         const { text, keyboard } = await this.pagination(
-          id,
-          Number(cbData.split(':')[1])
+          userId,
+          Number(cbData.split(':')[1]),
+          locale
         );
         ctx.editMessageText(text, keyboard);
       } catch (e) {
@@ -78,42 +92,61 @@ export class MealsSceneHandler extends BaseSceneHandler {
     });
   }
 
-  private async pagination(userId: number, page: number) {
-    const user = await this.userService.getUserByTelegram(userId);
+  private async pagination(userId: number, page: number, locale: string) {
+    try {
+      const limit = 5;
 
-    const limit = 5;
+      const { meals, count } = await this.mealService.getMealsList({
+        userId,
+        limit,
+        page
+      });
 
-    const { meals, count } = await this.mealService.getMealsList({
-      userId: user.id,
-      limit,
-      page
-    });
+      if (!meals.length) {
+        return {
+          text: this.localeService.t('telegram.meals.no-meals', locale),
+          keyboard: Markup.inlineKeyboard([])
+        };
+      }
 
-    function mealsToMessage(meals: MealModel[]) {
-      return meals
+      const text = meals
         .map((meal) => {
-          const { createdAt, calories, fat, protein, carbohydrate } = meal;
+          const { createdAt, calories, fats, proteins, carbohydrates } = meal;
           return `🗓${createdAt.toISOString()} 
-            ⚡️ Calories: ${calories},
-            🔥Fat: ${fat},
-            ⛓Protein: ${protein},
-            🍚Carbohydrate: ${carbohydrate}`;
+          ⚡️${this.localeService.t(
+            'core.macronutrients.calories',
+            locale
+          )}: ${calories},
+          🔥${this.localeService.t(
+            'core.macronutrients.fats',
+            locale
+          )}: ${fats},
+          ⛓${this.localeService.t(
+            'core.macronutrients.proteins',
+            locale
+          )}: ${proteins},
+          🍚${this.localeService.t(
+            'core.macronutrients.carbohydrates',
+            locale
+          )}: ${carbohydrates}`;
         })
         .join('\n\n');
-    }
 
-    return {
-      text: mealsToMessage(meals),
-      keyboard: Markup.inlineKeyboard([
-        [
-          ...(page > 1
-            ? [{ text: '<', callback_data: `${this.sceneId}:${page - 1}` }]
-            : []),
-          ...(page + 1 <= Math.ceil(count / limit)
-            ? [{ text: '>', callback_data: `${this.sceneId}:${page + 1}` }]
-            : [])
-        ]
-      ])
-    };
+      return {
+        text,
+        keyboard: Markup.inlineKeyboard([
+          [
+            ...(page > 1
+              ? [{ text: '<', callback_data: `${this.sceneId}:${page - 1}` }]
+              : []),
+            ...(page + 1 <= Math.ceil(count / limit)
+              ? [{ text: '>', callback_data: `${this.sceneId}:${page + 1}` }]
+              : [])
+          ]
+        ])
+      };
+    } catch (error) {
+      console.log(error);
+    }
   }
 }
